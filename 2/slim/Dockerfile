@@ -22,6 +22,12 @@ ENV PYTHON_PIP_VERSION 9.0.1
 
 RUN set -ex; \
 	\
+	fetchDeps=' \
+		bzip2 \
+		wget \
+	'; \
+	apt-get update && apt-get install -y $fetchDeps --no-install-recommends && rm -rf /var/lib/apt/lists/*; \
+	\
 # this "case" statement is generated via "update.sh"
 	dpkgArch="$(dpkg --print-architecture)"; \
 	case "${dpkgArch##*-}" in \
@@ -33,14 +39,12 @@ RUN set -ex; \
 		armhf) pypyArch='linux-armhf-raring'; sha256='ddceca9c5c9a456d4bf1beab177660adffbbdf255a922244e1cc05f20318be46' ;; \
 # i386
 		i386) pypyArch='linux32'; sha256='a0b125a5781f7e5ddfc3baca46503b14f4ee6a0e234e8d72bfcf3afdf4120bef' ;; \
+# ppc64le
+		ppc64el) pypyArch='ppc64le'; sha256='5746823904df74423376e0326046e1171df9693a6d4c95e8ce14ca83534bae72'; apt-get update; apt-get install -y --no-install-recommends rpm2cpio cpio; rm -rf /var/lib/apt/lists/*; tempRpmDir="$(mktemp -d)"; ( cd "$tempRpmDir"; wget -qO- "http://secondary.fedoraproject.org/pub/fedora-secondary/releases/26/Everything/ppc64le/os/Packages/c/compat-openssl10-1.0.2j-6.fc26.ppc64le.rpm" | rpm2cpio - | cpio --extract --make-directories --preserve-modification-time --verbose ); ( cd "$tempRpmDir"; wget -qO- "http://secondary.fedoraproject.org/pub/fedora-secondary/releases/26/Everything/ppc64le/os/Packages/o/openssl-libs-1.1.0f-4.fc26.ppc64le.rpm" | rpm2cpio - | cpio --extract --make-directories --preserve-modification-time --verbose ); ( cd "$tempRpmDir"/usr/lib*; cp -vL libcrypto.so.1.1 libcrypto.so.10 libssl.so.1.1 libssl.so.10 /usr/local/bin/ ); apt-get purge -y --auto-remove rpm2cpio cpio; rm -rf "$tempRpmDir" ;; \
+# s390x
+		s390x) pypyArch='s390x'; sha256='35aea25e2b9d2f7c8742c47e4e7474ef0f93ce1b5e3d4f5a99795bab23c1ad2c'; apt-get update; apt-get install -y --no-install-recommends rpm2cpio cpio; rm -rf /var/lib/apt/lists/*; tempRpmDir="$(mktemp -d)"; ( cd "$tempRpmDir"; wget -qO- "http://secondary.fedoraproject.org/pub/fedora-secondary/releases/26/Everything/s390x/os/Packages/c/compat-openssl10-1.0.2j-6.fc26.s390x.rpm" | rpm2cpio - | cpio --extract --make-directories --preserve-modification-time --verbose ); ( cd "$tempRpmDir"; wget -qO- "http://secondary.fedoraproject.org/pub/fedora-secondary/releases/26/Everything/s390x/os/Packages/o/openssl-libs-1.1.0f-4.fc26.s390x.rpm" | rpm2cpio - | cpio --extract --make-directories --preserve-modification-time --verbose ); ( cd "$tempRpmDir"/usr/lib*; cp -vL libcrypto.so.1.1 libcrypto.so.10 libssl.so.1.1 libssl.so.10 /usr/local/bin/ ); apt-get purge -y --auto-remove rpm2cpio cpio; rm -rf "$tempRpmDir" ;; \
 		*) echo >&2 "error: current architecture ($dpkgArch) does not have a corresponding PyPy $PYPY_VERSION binary release"; exit 1 ;; \
 	esac; \
-	\
-	fetchDeps=' \
-		bzip2 \
-		wget \
-	'; \
-	apt-get update && apt-get install -y $fetchDeps --no-install-recommends && rm -rf /var/lib/apt/lists/*; \
 	\
 	wget -O pypy.tar.bz2 "https://bitbucket.org/pypy/pypy/downloads/pypy2-v${PYPY_VERSION}-${pypyArch}.tar.bz2"; \
 	echo "$sha256 *pypy.tar.bz2" | sha256sum -c; \

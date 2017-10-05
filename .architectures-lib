@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 
+_commitOrCat() {
+	local f="$1"; shift
+	if [ -n "${commit:-}" ]; then
+		git show "$commit":"$f"
+	else
+		cat "$f"
+	fi
+}
+
 _awkArch() {
 	local awkExpr="$1"; shift
-	awk "$@" "/^#|^\$/ { next } $awkExpr" release-architectures
+	_commitOrCat release-architectures | awk "$@" "/^#|^\$/ { next } $awkExpr"
 }
 
 dpkgArches() {
@@ -38,13 +47,13 @@ _generateParentRepoToArches 'pypy'
 hasBashbrewArch() {
 	local dir="$1"; shift
 	local bashbrewArch="$1"; shift
-	grep -qE "^# ${bashbrewArch}\$" "$dir/Dockerfile"
+	_commitOrCat "$dir/Dockerfile" | grep -qE "^# ${bashbrewArch}\$"
 }
 
 parentArches() {
 	local dir="$1"; shift # "2", "3/slim", etc
 
-	local parent="$(awk 'toupper($1) == "FROM" { print $2 }' "$dir/Dockerfile")"
+	local parent="$(_commitOrCat "$dir/Dockerfile" | awk 'toupper($1) == "FROM" { print $2 }')"
 	local parentArches="${parentRepoToArches[$parent]:-}"
 
 	local arches=()

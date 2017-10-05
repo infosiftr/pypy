@@ -76,7 +76,7 @@ for version in "${versions[@]}"; do
 		fi
 
 		case "$variant" in
-			onbuild) variantArches="$(parentArches "$(dirname "$dir")" )" ;;
+			onbuild) variantArches="$(commit='master' parentArches "$(dirname "$dir")")" ;;
 			*)       variantArches="$(parentArches "$dir")" ;;
 		esac
 

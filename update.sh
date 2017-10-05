@@ -80,8 +80,30 @@ for version in "${versions[@]}"; do
 			continue
 		fi
 		bashbrewArch="$(dpkgToBashbrewArch "$dpkgArch")"
+		extraArchBits=
+		case "$bashbrewArch" in
+			ppc64le|s390x)
+				# these arches are built for Fedora and RHEL, and require compatible libssl.so.10 and libcrypto.so.10 (which we can get from Fedora's RPMs)
+				fedoraArch="$bashbrewArch"
+				fedoraMirror="http://secondary.fedoraproject.org/pub/fedora-secondary/releases/26/Everything/$fedoraArch/os"
+				fedoraPrimaryXml="$(curl -fsSL "$fedoraMirror/repodata/repomd.xml" | grep -oE '"[^"]+-primary.xml.gz"')"
+				fedoraPrimaryXml="${fedoraPrimaryXml//\"/}"
+				fedoraRpms="$(curl -fsSL "$fedoraMirror/$fedoraPrimaryXml" | gunzip | grep -oE '"Packages/(c/compat-openssl10|o/openssl-libs)-[0-9][^"]+.'"$fedoraArch"'.rpm"')"
+				fedoraRpms="${fedoraRpms//\"/}"
+				[ "$(echo "$fedoraRpms" | wc -l)" = '2' ] # rough sanity check
+				extraArchBits+='; apt-get update; apt-get install -y --no-install-recommends rpm2cpio cpio; rm -rf /var/lib/apt/lists/*'
+				extraArchBits+='; tempRpmDir="$(mktemp -d)"'
+				for fedoraRpm in $fedoraRpms; do
+					fedoraRpmUrl="$fedoraMirror/$fedoraRpm"
+					fedoraRpmFile="$(basename "$fedoraRpm")"
+					extraArchBits+='; ( cd "$tempRpmDir"; wget -qO- "'"$fedoraRpmUrl"'" | rpm2cpio - | cpio --extract --make-directories --preserve-modification-time --verbose )'
+				done
+				extraArchBits+='; ( cd "$tempRpmDir"/usr/lib*; cp -vL libcrypto.so.1.1 libcrypto.so.10 libssl.so.1.1 libssl.so.10 /usr/local/bin/ )'
+				extraArchBits+='; apt-get purge -y --auto-remove rpm2cpio cpio; rm -rf "$tempRpmDir"'
+				;;
+		esac
 		linuxArchCase+="# $bashbrewArch"$'\n'
-		linuxArchCase+=$'\t\t'"$dpkgArch) pypyArch='$pypyArch'; sha256='$sha256' ;; "$'\\\n'
+		linuxArchCase+=$'\t\t'"$dpkgArch) pypyArch='$pypyArch'; sha256='$sha256'$extraArchBits ;; "$'\\\n'
 	done
 	linuxArchCase+=$'\t\t''*) echo >&2 "error: current architecture ($dpkgArch) does not have a corresponding PyPy $PYPY_VERSION binary release"; exit 1 ;; '$'\\\n'
 	linuxArchCase+=$'\t''esac'

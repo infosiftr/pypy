@@ -22,6 +22,12 @@ ENV PYTHON_PIP_VERSION 9.0.1
 
 RUN set -ex; \
 	\
+	fetchDeps=' \
+		bzip2 \
+		wget \
+	'; \
+	apt-get update && apt-get install -y $fetchDeps --no-install-recommends && rm -rf /var/lib/apt/lists/*; \
+	\
 # this "case" statement is generated via "update.sh"
 	dpkgArch="$(dpkg --print-architecture)"; \
 	case "${dpkgArch##*-}" in \
@@ -29,12 +35,6 @@ RUN set -ex; \
 		amd64) pypyArch='linux64'; sha256='57d871a7f1135719c138cee4e3533c3275d682a76a40ff668e95150c65923035' ;; \
 		*) echo >&2 "error: current architecture ($dpkgArch) does not have a corresponding PyPy $PYPY_VERSION binary release"; exit 1 ;; \
 	esac; \
-	\
-	fetchDeps=' \
-		bzip2 \
-		wget \
-	'; \
-	apt-get update && apt-get install -y $fetchDeps --no-install-recommends && rm -rf /var/lib/apt/lists/*; \
 	\
 	wget -O pypy.tar.bz2 "https://bitbucket.org/pypy/pypy/downloads/pypy3-v${PYPY_VERSION}-${pypyArch}.tar.bz2"; \
 	echo "$sha256 *pypy.tar.bz2" | sha256sum -c; \
